@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Lato - Sans Serif */
+@font-face {
+  font-family: 'Lato';
+  src: url('/fonts/lato-v25-latin-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Playfair Display - Serif elegante */
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/fonts/playfair-v10-latin-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Zilla Slab - Slab serif */
+@font-face {
+  font-family: 'Zilla Slab';
+  src: url('/fonts/zilla-slab-v12-latin-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  font-family: 'Lato', sans-serif;
+  background-color: #F6F4EF;
+  color: #2A2F2C;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Zilla Slab', serif; /* Oppure Playfair Display per titoli più eleganti */
+}
+
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

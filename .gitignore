@@ -1,0 +1,28 @@
+# Node
+node_modules/
+npm-debug.log
+.next/
+out/
+
+# Env
+.env
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+
+# Dataset & Models
+*.pt
+*.pth
+*.jpg
+*.JPG
+*.png
+*.PNG

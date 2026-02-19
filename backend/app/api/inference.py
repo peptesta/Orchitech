@@ -36,13 +36,9 @@ except ImportError:
     HAS_EXTERNAL_CROP = False
 
 def process_single_image(image_data, model, onevall_models, device, CLASS_NAMES, 
-                        transform_pipeline, model_strategy, crop_mode, explain_method):
-    """
-    Process a single image through the inference pipeline.
-    Returns a dictionary with results.
-    """
+                         transform_pipeline, model_strategy, crop_mode, explain_method):
     try:
-        # Handle both file objects and base64/base64 strings
+        # 1. Load Image
         if isinstance(image_data, bytes):
             image = Image.open(io.BytesIO(image_data)).convert('RGB')
         else:
@@ -50,68 +46,74 @@ def process_single_image(image_data, model, onevall_models, device, CLASS_NAMES,
         
         tensor_original = transform_pipeline(image).unsqueeze(0).to(device)
         
-        # Cropping logic
+        # 2. Cropping logic
         image_cropped = None
         tensor_cropped = None
-        crop_boxes = []
-        crop_scores = []
         crop_error = None
         
         if crop_mode in ['external', 'compare'] and HAS_EXTERNAL_CROP:
             try:
-                image_cropped, crop_boxes, crop_scores = crop(image.copy())
+                image_cropped, _, _ = crop(image.copy())
                 if image_cropped is not None:
                     tensor_cropped = transform_pipeline(image_cropped).unsqueeze(0).to(device)
             except Exception as e:
                 crop_error = f"Cropping failed: {str(e)}"
         
-        # Determine tensors to use
-        primary_tensor = tensor_original
-        secondary_tensor = None
+        # 3. Determine Tensors
+        primary_tensor = tensor_cropped if (crop_mode == "external" and tensor_cropped is not None) else tensor_original
+        secondary_tensor = tensor_cropped if (crop_mode == "compare") else None
         
-        if crop_mode == "external" and tensor_cropped is not None:
-            primary_tensor = tensor_cropped
-        elif crop_mode == "compare" and tensor_cropped is not None:
-            secondary_tensor = tensor_cropped
-        
-        # Inference
+        # 4. Run Inference
         prim_idx, prim_conf, prim_probs, prim_err = perform_inference(
             model, onevall_models, primary_tensor, model_strategy, device
         )
         
-        sec_idx, sec_conf, sec_probs, sec_err = -1, 0.0, None, None
-        if secondary_tensor is not None:
-            sec_idx, sec_conf, sec_probs, sec_err = perform_inference(
-                model, onevall_models, secondary_tensor, model_strategy, device
-            )
-        
-        # Build result
+        # 5. Explainability Logic
+        # Helper to handle 'both' or specific methods
+        def get_xai(m, t, idx):
+            if idx == -1: return {}
+            xai_results = {}
+            methods = ['occlusion', 'integrated_gradients'] if explain_method == 'both' else [explain_method]
+            for meth in methods:
+                if meth in ['occlusion', 'integrated_gradients']:
+                    xai_results[meth] = generate_explanation(m, t, idx, meth)
+            return xai_results
+
+        primary_xai = get_xai(model, primary_tensor, prim_idx)
+
+        # 6. Build Result
         result = {
             'success': True,
-            'model_strategy': model_strategy,
-            'crop_mode': crop_mode,
             'predicted_class': CLASS_NAMES[prim_idx] if prim_idx != -1 else "Unknown",
             'confidence': prim_conf,
             'all_classes_probs': prim_probs,
+            'occlusion': primary_xai.get('occlusion'),
+            'integrated_gradients': primary_xai.get('integrated_gradients'),
             'error': prim_err or crop_error,
         }
+
+        if image_cropped is not None:
+            result['image_cropped'] = image_to_base64(image_cropped)
         
-        # Add comparison results if applicable
-        if crop_mode == "compare":
+        # 7. Handle Comparison Mode
+        if secondary_tensor is not None:
+            sec_idx, sec_conf, sec_probs, _ = perform_inference(
+                model, onevall_models, secondary_tensor, model_strategy, device
+            )
+            secondary_xai = get_xai(model, secondary_tensor, sec_idx)
+            
             result.update({
                 'predicted_class_cropped': CLASS_NAMES[sec_idx] if sec_idx != -1 else "Unknown",
                 'confidence_cropped': sec_conf,
                 'all_classes_probs_cropped': sec_probs,
+                'occlusion_cropped': secondary_xai.get('occlusion'),
+                'integrated_gradients_cropped': secondary_xai.get('integrated_gradients'),
             })
         
         return result
         
     except Exception as e:
-        return {
-            'success': False,
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }
+        return {'success': False, 'error': str(e), 'traceback': traceback.format_exc()}
 
 @inference_bp.route('/inference', methods=['POST'])
 def run_inference_endpoint():

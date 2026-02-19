@@ -115,6 +115,7 @@ export default function OrchidDashboard() {
       const res = await fetch(API_URL, { method: "POST", body: formData });
       if (!res.ok) throw new Error(`Server Error: ${res.statusText}`);
       const data: ApiResponse = await res.json();
+      console.log("API Response:", data);
       
       setResult(data);
       setAnalyzedMode(cropMode);
@@ -129,13 +130,18 @@ export default function OrchidDashboard() {
         newCache[intKey] = data;
 
         const extKey = getCacheKey(modelStrategy, "external", useGpu, showOcclusion, showIG);
+        
+        // Creiamo un risultato che sembri un'analisi "External" pura
         const syntheticExternal: ApiResponse = {
-           ...data,
-           predicted_class: data.predicted_external_class || "", 
-           confidence: data.confidence_external || 0,            
-           all_classes_probs: data.all_classes_probs_external || [], 
-           integrated_gradients: data.integrated_gradients_external,
-           occlusion: data.occlusion_external,
+          ...data,
+          // Sovrascriviamo i campi principali con quelli del crop
+          predicted_class: data.predicted_class_cropped || data.predicted_class,
+          confidence: data.confidence_cropped || data.confidence,
+          all_classes_probs: data.all_classes_probs_cropped || data.all_classes_probs,
+          integrated_gradients: data.integrated_gradients_cropped,
+          occlusion: data.occlusion_cropped,
+          // Importante: manteniamo il riferimento all'immagine croppata
+          image_cropped: data.image_cropped 
         };
         newCache[extKey] = syntheticExternal;
       }

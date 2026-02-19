@@ -17,24 +17,53 @@ interface SingleViewProps {
 
 export default function SingleView({ result, preview, mode, useGpu, strategyName }: SingleViewProps) {
   const [showMetadata, setShowMetadata] = useState(false);
+  const [fullscreenImg, setFullscreenImg] = useState<{src: string, label: string} | null>(null);
   
   const isExternal = mode === "external";
   
-  // Immagine da mostrare (può essere il crop)
+  // Determina l'immagine da mostrare (originale o crop)
   const displayImageSrc = isExternal && result.image_cropped ? `data:image/jpeg;base64,${result.image_cropped}` : preview;
   const displayImageLabel = isExternal && result.image_cropped ? "Focused Crop Input" : "Original Input";
 
-  // IMPORTANTE: Passiamo sempre e solo 'preview' all'hook dei metadati.
-  // Questo assicura che i dati EXIF/GPS siano letti dal file originale.
+  // Estrazione metadati dall'immagine originale
   const { metadata, address, loading } = useImageMetadata(preview);
 
   const lat = metadata?.latitude;
   const lon = metadata?.longitude;
   const hasGps = lat !== undefined && lon !== undefined;
 
+  const handleImageClick = (src: string, label: string) => {
+    setFullscreenImg({ src, label });
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 relative">
       
+      {/* --- LIGHTBOX (FULLSCREEN MODAL) --- */}
+      {fullscreenImg && (
+        <div 
+          className="fixed inset-0 z-[999] bg-stone-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 md:p-12 cursor-pointer"
+          onClick={() => setFullscreenImg(null)}
+        >
+          <button className="absolute top-8 right-8 text-white/50 text-5xl hover:text-white transition-colors">×</button>
+          <div className="relative w-full h-full max-w-6xl flex flex-col items-center justify-center">
+            <p className="text-pink-400 font-bold uppercase tracking-[0.2em] text-xs mb-6 bg-pink-950/50 px-4 py-2 rounded-full border border-pink-800/50">
+                {fullscreenImg.label}
+            </p>
+            <div className="relative w-full h-[80vh]">
+                <Image 
+                    src={fullscreenImg.src} 
+                    alt="Fullscreen" 
+                    fill 
+                    className="object-contain" 
+                    unoptimized
+                />
+            </div>
+            <p className="text-white/30 text-[10px] mt-8 uppercase tracking-widest font-bold font-sans">Click anywhere to close</p>
+          </div>
+        </div>
+      )}
+
       {/* --- COLONNA SINISTRA: Analisi e Dati --- */}
       <div className="lg:col-span-2 flex flex-col gap-6 order-2 lg:order-1">
 
@@ -60,15 +89,11 @@ export default function SingleView({ result, preview, mode, useGpu, strategyName
           </div>
         </div>
 
-        {/* 2. Sezione GPS & Mappa (Sempre dall'originale) */}
-        <div className="bg-white p-6 rounded-2xl shadow-md shadow-stone-200/50 border border-stone-200 overflow-hidden">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-stone-800 flex items-center gap-2 text-sm uppercase">📍 Original Location</h3>
-            {address && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-bold border border-emerald-100 uppercase">Geocoded</span>}
-          </div>
-          
+        {/* 2. Sezione GPS & Mappa */}
+        <div className="bg-white p-6 rounded-2xl shadow-md border border-stone-200 overflow-hidden">
+          <h3 className="font-bold text-stone-800 flex items-center gap-2 text-sm uppercase mb-4">📍 Original Location</h3>
           {loading ? (
-            <div className="h-48 bg-stone-100 animate-pulse rounded-xl flex items-center justify-center text-stone-400 text-xs italic">Estrazione dati GPS dal file originale...</div>
+            <div className="h-48 bg-stone-100 animate-pulse rounded-xl flex items-center justify-center text-stone-400 text-xs italic">Extracting GPS...</div>
           ) : hasGps ? (
             <div className="space-y-4">
               <div className="bg-stone-50 p-3 rounded-lg border border-stone-100">
@@ -81,28 +106,19 @@ export default function SingleView({ result, preview, mode, useGpu, strategyName
                   src={`https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.005}%2C${lat-0.005}%2C${lon+0.005}%2C${lat+0.005}&layer=mapnik&marker=${lat}%2C${lon}`}
                 ></iframe>
               </div>
-              <div className="flex flex-col gap-2">
-                <div className="flex justify-between text-[11px] py-1 border-b border-stone-50 text-stone-600">
-                  <span className="font-bold uppercase text-stone-400">Coordinates</span>
-                  <span className="font-mono">{lat.toFixed(5)}, {lon.toFixed(5)}</span>
-                </div>
-                <a href={`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-full py-2 bg-stone-900 text-white text-[11px] font-bold rounded-lg hover:bg-stone-800 transition-colors">View on Google Maps</a>
-              </div>
             </div>
           ) : (
-            <div className="h-24 bg-stone-50 rounded-xl flex flex-col items-center justify-center border border-dashed border-stone-200 p-4 text-center text-stone-400 italic text-xs">Gps Coords not found in original image</div>
+            <div className="h-24 bg-stone-50 rounded-xl flex flex-col items-center justify-center border border-dashed border-stone-200 text-stone-400 italic text-xs">Gps Coords not found</div>
           )}
         </div>
 
-        {/* 3. Sezione Metadati EXIF (Sempre dall'originale) */}
-        <div className="bg-white p-6 rounded-2xl shadow-md shadow-stone-200/50 border border-stone-200">
+        {/* 3. Sezione Metadati EXIF */}
+        <div className="bg-white p-6 rounded-2xl shadow-md border border-stone-200">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-stone-800 text-sm uppercase">ℹ️ Technical Meta (Original)</h3>
-            {metadata && (
-              <button onClick={() => setShowMetadata(!showMetadata)} className="text-xs font-bold text-pink-600 underline">
-                {showMetadata ? "Hide" : "Show All"}
-              </button>
-            )}
+            <h3 className="font-bold text-stone-800 text-sm uppercase">ℹ️ Technical Meta</h3>
+            <button onClick={() => setShowMetadata(!showMetadata)} className="text-xs font-bold text-pink-600 underline">
+              {showMetadata ? "Hide" : "Show All"}
+            </button>
           </div>
           {metadata ? (
             <div className="space-y-2 text-[11px]">
@@ -112,50 +128,59 @@ export default function SingleView({ result, preview, mode, useGpu, strategyName
                   <span className="text-stone-700 font-medium truncate block">{metadata.Model || 'Unknown'}</span>
                 </div>
                 <div className="bg-stone-50 p-2 rounded">
-                  <span className="block text-stone-400 font-bold uppercase text-[9px]">Date Taken</span>
+                  <span className="block text-stone-400 font-bold uppercase text-[9px]">Date</span>
                   <span className="text-stone-700 font-medium truncate block">
                     {metadata.DateTimeOriginal ? new Date(metadata.DateTimeOriginal).toLocaleDateString() : 'N/A'}
                   </span>
                 </div>
               </div>
               {showMetadata && (
-                <div className="mt-4 max-h-48 overflow-y-auto custom-scrollbar bg-stone-50 p-3 rounded-lg border border-stone-100 font-mono text-[10px]">
+                <div className="mt-4 max-h-48 overflow-y-auto bg-stone-50 p-3 rounded-lg border border-stone-100 font-mono text-[10px] custom-scrollbar">
                   <pre className="whitespace-pre-wrap">{JSON.stringify(metadata, null, 2)}</pre>
                 </div>
               )}
             </div>
-          ) : <p className="text-xs text-stone-400 italic font-medium">Dati tecnici non disponibili.</p>}
+          ) : <p className="text-xs text-stone-400 italic font-medium">Meta non disponibili.</p>}
         </div>
       </div>
 
       {/* --- COLONNA DESTRA: Visualizzazioni --- */}
       <div className="lg:col-span-3 space-y-6 order-1 lg:order-2">
-        {/* Preview Immagine (Può essere il Crop) */}
-        <div className="bg-white p-4 rounded-xl shadow-md border border-stone-200 relative">
+        
+        {/* Preview Immagine Principale */}
+        <div 
+            className="bg-white p-4 rounded-xl shadow-md border border-stone-200 relative cursor-zoom-in group"
+            onClick={() => handleImageClick(displayImageSrc, displayImageLabel)}
+        >
           <h3 className="font-bold text-[10px] text-stone-400 uppercase mb-3 tracking-widest">{displayImageLabel}</h3>
           <div className="relative w-full h-[550px] bg-stone-100 rounded-lg overflow-hidden border border-stone-50">
-            <Image src={displayImageSrc} alt="Input" fill className="object-contain" unoptimized />
+            <Image src={displayImageSrc} alt="Input" fill className="object-contain group-hover:scale-[1.01] transition-transform duration-500" unoptimized />
           </div>
         </div>
 
         {/* Visual Explanation (Heatmaps) */}
         {useGpu && (result.integrated_gradients || result.occlusion) && (
           <div className="bg-stone-50 p-6 rounded-xl border border-stone-200 shadow-inner">
-            <h3 className="font-bold text-emerald-900 mb-6 flex items-center justify-between">
-               <span className="flex items-center gap-2">🧠 Visual Explanation</span>
-               <span className="text-[9px] uppercase font-bold text-stone-400 bg-white px-3 py-1 rounded-full border border-stone-200 shadow-sm">Red = High Importance</span>
+            <h3 className="font-bold text-emerald-900 mb-6 flex items-center gap-2">
+               🧠 Visual Explanation
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {result.integrated_gradients && (
-                <div className="relative w-full h-[350px] bg-white rounded-lg overflow-hidden shadow-sm border border-stone-200 group">
-                  <p className="absolute top-2 left-2 z-10 bg-stone-900/80 text-white px-3 py-1 text-[10px] rounded font-bold backdrop-blur-sm">Integrated Gradients</p>
-                  <Image src={`data:image/jpeg;base64,${result.integrated_gradients}`} alt="IG" fill className="object-contain p-2" />
+                <div 
+                    className="relative w-full h-[350px] bg-white rounded-lg overflow-hidden shadow-sm border border-stone-200 cursor-zoom-in hover:border-emerald-500 transition-colors group"
+                    onClick={() => handleImageClick(`data:image/jpeg;base64,${result.integrated_gradients}`, "Integrated Gradients")}
+                >
+                  <p className="absolute top-2 left-2 z-10 bg-stone-900/80 text-white px-3 py-1 text-[10px] rounded font-bold backdrop-blur-sm uppercase">IG Map</p>
+                  <Image src={`data:image/jpeg;base64,${result.integrated_gradients}`} alt="IG" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
                 </div>
               )}
               {result.occlusion && (
-                <div className="relative w-full h-[350px] bg-white rounded-lg overflow-hidden shadow-sm border border-stone-200 group">
-                  <p className="absolute top-2 left-2 z-10 bg-stone-900/80 text-white px-3 py-1 text-[10px] rounded font-bold backdrop-blur-sm">Occlusion Map</p>
-                  <Image src={`data:image/jpeg;base64,${result.occlusion}`} alt="Occ" fill className="object-contain p-2" />
+                <div 
+                    className="relative w-full h-[350px] bg-white rounded-lg overflow-hidden shadow-sm border border-stone-200 cursor-zoom-in hover:border-emerald-500 transition-colors group"
+                    onClick={() => handleImageClick(`data:image/jpeg;base64,${result.occlusion}`, "Occlusion Map")}
+                >
+                  <p className="absolute top-2 left-2 z-10 bg-stone-900/80 text-white px-3 py-1 text-[10px] rounded font-bold backdrop-blur-sm uppercase">Occlusion</p>
+                  <Image src={`data:image/jpeg;base64,${result.occlusion}`} alt="Occ" fill className="object-contain p-2 group-hover:scale-105 transition-transform" />
                 </div>
               )}
             </div>

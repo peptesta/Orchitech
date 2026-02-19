@@ -12,8 +12,8 @@ from captum.attr import IntegratedGradients, Occlusion
 from captum.attr import visualization as viz
 from PIL import Image
 
-SLIDING_WINDOW_SIZE = 15
-STRIDE = 10              # Stride molto più grande = Meno calcoli (meno RAM)
+SLIDING_WINDOW_SIZE = 20
+STRIDE = 20
 
 config = dotenv_values(".env")
 MEAN = [float(x) for x in config.get("MEAN", "0.5364 0.5518 0.3866").split()]
@@ -82,14 +82,15 @@ def get_occlusion_b64(model, input_tensor, target_label, mean, std):
         model.eval()
         occlusion = Occlusion(model)
 
-        # --- Esegui una perturbazione alla volta ---
+        # Increase strides for speed! 
+        # If image is 512x256, a stride of 25 reduces passes by 4x vs stride of 10.
         attributions = occlusion.attribute(
             input_tensor,
-            strides=(3, STRIDE, STRIDE),
+            strides=(3, 25, 25), 
             target=target_label,
-            sliding_window_shapes=(3, SLIDING_WINDOW_SIZE, SLIDING_WINDOW_SIZE),
+            sliding_window_shapes=(3, 30, 30),
             baselines=0,
-            perturbations_per_eval=1 # Fondamentale per la RAM
+            perturbations_per_eval=2 # Slightly faster if you have enough RAM
         )
 
         original_image = denormalize(input_tensor.squeeze(0), mean, std).detach().cpu().permute(1, 2, 0).numpy()
@@ -133,19 +134,20 @@ def base64_to_image(base64_string):
         return None
 
 def generate_explanation(model, tensor: torch.Tensor, target_idx: int, method: str) -> Optional[str]:
-    # ... (unchanged) ...
     if method == "none" or target_idx == -1 or tensor is None:
         return None
 
     try:
-        print(f"DEBUG: Generating XAI visualization with method: {method} for class: {target_idx}", flush=True)
-        if method == 'integrated_gradients':
-            return get_integrated_gradients_b64(model, tensor, target_idx, MEAN, STD)
-        elif method == 'occlusion':
-            with torch.no_grad():
+        # Crucial: Disable gradients for both methods to save RAM/Time 
+        # (IG needs them internally but handles its own logic, Occlusion definitely doesn't)
+        with torch.no_grad(): 
+            if method == 'occlusion':
                 return get_occlusion_b64(model, tensor, target_idx, MEAN, STD)
+            
+        if method == 'integrated_gradients':
+            # IG requires gradients, so call it outside the no_grad block
+            return get_integrated_gradients_b64(model, tensor, target_idx, MEAN, STD)
+            
     except Exception as e:
         print(f"XAI Generation Warning: {e}", flush=True)
         return None
-    
-    return None

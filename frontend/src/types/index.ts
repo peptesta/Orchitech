@@ -1,21 +1,26 @@
 // --- TYPES ---
 export interface ApiResponse {
+  success: boolean;
   predicted_class: string;
   confidence: number;
   all_classes_probs: number[];
-  image_cropped?: string;
-  error?: string;
+  image?: string; // Base64 of original image
+  image_cropped?: string; // Base64 of the crop
   
-  // Compare Mode Data
-  predicted_external_class?: string;
-  confidence_external?: number;
-  all_classes_probs_external?: number[];
-  
-  // Explainability
-  integrated_gradients?: string;
+  // Explainability fields (Original/Primary)
+  integrated_gradients?: string; 
   occlusion?: string;
-  integrated_gradients_external?: string;
-  occlusion_external?: string;
+
+  // Comparison/Secondary fields (The ones causing the error)
+  predicted_class_cropped?: string;
+  confidence_cropped?: number;
+  all_classes_probs_cropped?: number[];
+  integrated_gradients_cropped?: string;
+  occlusion_cropped?: string;
+
+  // Error handling
+  error?: string;
+  traceback?: string;
 }
 
 export interface ImageFile {

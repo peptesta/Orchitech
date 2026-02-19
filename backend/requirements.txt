@@ -14,4 +14,5 @@ jupyter
 notebook
 tqdm
 seaborn
+pandas
 

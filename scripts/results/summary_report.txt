@@ -1,0 +1,35 @@
+================================================================================
+ ORCHID CLASSIFICATION TEST RESULTS
+================================================================================
+
+OVERALL STATISTICS
+----------------------------------------
+  Total Images:      5068
+  Correct:           3037 (59.93%)
+  Wrong:             2031 (40.07%)
+  Avg Confidence:    86.5323
+
+DATASET COMPARISON (Cropped vs Original)
+----------------------------------------
+  Cropped      | Acc: 59.03% | Conf: 86.1982 | n=2736
+  Original     | Acc: 60.98% | Conf: 86.9242 | n=2332
+
+SUBSET COMPARISON (Internet vs Local)
+----------------------------------------
+  cropped      | internet | Acc: 28.59% | n=1329
+  cropped      | local    | Acc: 87.78% | n=1407
+  original     | internet | Acc: 28.52% | n=1080
+  original     | local    | Acc: 88.98% | n=1252
+
+PER-CLASS PERFORMANCE
+----------------------------------------
+  Class                      Count  Correct   Accuracy   Avg Conf
+  ------------------------------------------------------------
+  O. sphegodes_Palena          595      589    98.99%    97.8967
+  O. exaltata                 1180      938    79.49%    91.6211
+  O. incubacea                 704      480    68.18%    86.6422
+  O. majellensis               351      232    66.10%    84.4946
+  O. garganica                1274      573    44.98%    80.7923
+  O. sphegodes                 964      225    23.34%    81.5366
+
+================================================================================

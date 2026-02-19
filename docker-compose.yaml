@@ -1,12 +1,14 @@
 services:
-   # --- CONTAINER 1: IL BACKEND (FLASK) ---
    backend:
-      build: ./backend 
+      build: ./backend
       container_name: orchid_backend_web_app
       volumes:
-         - ./backend:/app # Mappa la cartella corrente
+      - ./backend:/app
+      - ./scripts:/app/scripts
+      - ./datasets:/app/datasets   
+      - ./test_results:/app/test_results
       ports:
-         - "5000:5000" # Espone la porta 5000
+      - "5000:5000"
 
 
   # --- CONTAINER 2: IL FRONTEND (NEXT.JS) ---
